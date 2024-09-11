@@ -1,0 +1,101 @@
+# Install shfmt if not installed
+# Linux: sudo apt-get install shfmt
+# macOS: brew install shfmt
+
+#!/bin/bash
+
+# Check for shfmt installation
+if ! command -v shfmt &> /dev/null
+then
+    echo "shfmt is required but not installed. Please install it first."
+    exit 1
+fi
+
+# Function to display usage
+usage() {
+    echo "Usage: $0 [-t | -s num_spaces] [-d directory | file1 file2 ...]"
+    echo "  -t: Use tabs for indentation."
+    echo "  -s num_spaces: Use spaces with specified number of spaces for indentation."
+    echo "  -d directory: Format all shell script files in the specified directory."
+    echo "  file1 file2 ...: Specify one or more files to format."
+	echo
+	echo
+	echo "  Indent with tabs"
+	echo "    format_shell -t file1.sh file2.sh"
+	echo
+	echo "  Indent with spaces (e.g., 4 spaces):"
+	echo "    format_shell -s 4 file1.sh file2.sh"
+	echo
+	echo "  Format all scripts in a directory"
+	echo "    format_shell -t -d /path/to/directory"
+
+
+    exit 1
+}
+
+# Default indentation (spaces with 2 spaces)
+indent_type="spaces"
+num_spaces=2
+directory=""
+
+# Parse options
+while getopts "ts:d:" opt; do
+    case $opt in
+        t) 
+            indent_type="tabs"
+            ;;
+        s)
+            indent_type="spaces"
+            num_spaces="$OPTARG"
+            if ! [[ "$num_spaces" =~ ^[0-9]+$ ]]; then
+                echo "Invalid number of spaces: $num_spaces"
+                usage
+            fi
+            ;;
+        d)
+            directory="$OPTARG"
+            ;;
+        *)
+            usage
+            ;;
+    esac
+done
+shift $((OPTIND -1))
+
+# Check if files or directory is provided
+if [[ -z "$directory" && $# -eq 0 ]]; then
+    usage
+fi
+
+# Prepare shfmt options
+if [ "$indent_type" == "tabs" ]; then
+    indent_option="-i 0" # Tabs option
+else
+    indent_option="-i $num_spaces"
+fi
+
+# Function to format files
+format_file() {
+    local file="$1"
+    if [[ -f "$file" && "$file" =~ \.(sh|bash|csh)$ ]]; then
+        echo "Formatting $file..."
+        shfmt $indent_option -w "$file"
+    else
+        echo "Skipping $file (not a shell script)"
+    fi
+}
+
+# Format files in directory or individual files
+if [ -n "$directory" ]; then
+    # Find all shell script files in the directory
+    find "$directory" -type f -name "*.sh" -o -name "*.bash" -o -name "*.csh" | while read -r file; do
+        format_file "$file"
+    done
+else
+    # Format individual files
+    for file in "$@"; do
+        format_file "$file"
+    done
+fi
+
+echo "Formatting complete."
